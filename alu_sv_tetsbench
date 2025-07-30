@@ -1,0 +1,982 @@
+`timescale 1ns/1ns
+`define width 8
+`define n 4
+`define transactions 10
+`include "ALU_DESIGN.sv"
+
+//............interface...................
+
+interface intf();
+  logic [`width-1:0]opa,opb;
+  logic [`n-1:0]cmd;
+  logic [1:0]inp_valid;
+  logic ce,cin;
+  logic reset;
+  logic g,e,l,err,cout,oflow;
+  logic [`width:0]res;
+  logic mode;
+  logic clk;
+
+  clocking drv_cb@(posedge clk);
+    default input #0 output #0 ;
+    output opa,opb,cmd,inp_valid,mode,ce,cin;
+    input reset;
+  endclocking
+
+  clocking mon_cb@(posedge clk);
+    default input #0 output #0 ;
+    input res, err, g, e, l, cout, reset, oflow;
+  endclocking
+
+  clocking ref_cb@(posedge clk);
+    default input #0 output #0 ;
+    input opa,opb,cmd,inp_valid,mode,ce,cin,reset;
+  endclocking
+
+    modport DRV(clocking drv_cb);
+    modport MON(clocking mon_cb);
+    modport REF(clocking ref_cb);
+    modport DUT(input opa,
+    input opb,
+    input cmd,
+    input inp_valid,
+    input mode,
+    input ce,
+    input cin,
+    output res,
+    output err,
+    output oflow,
+    output cout,
+    output g,
+    output e,
+    output l);
+
+      //ASSeRTIONS
+
+  property prop1;
+    @(posedge clk)
+    inp_valid == 2'b11 |-> !$isunknown(opa) && !$isunknown(opb);
+  endproperty
+    assert property (prop1)
+    else $error("opa/opb unknown when IN_VALID == 2'b11");
+
+  property prop2;
+    @(posedge clk)
+    ce |-> !$isunknown(cmd) && !$isunknown(opa) && !$isunknown(opb) && !$isunknown(inp_valid) && !$isunknown(mode);
+  endproperty
+    assert property (prop2)
+    else $error("cmd or operands unknown when ce is high");
+
+  property prop3;
+    @(posedge clk)
+    cmd < (2**`n);
+  endproperty
+    assert property (prop3)
+    else $error("cmd out of range!");
+
+  property prop4;
+    @(posedge clk)
+    (mode==1 ) |-> (cmd inside {0,1,2,3,4,5,6,7,8,9,10});
+  endproperty
+    assert property (prop4)
+    else $error("Invalid cmd used in mode=1");
+
+  property prop5;
+    @(posedge clk)
+    (mode==0 ) |-> (cmd inside {0,1,2,3,4,5,6,7,8,9,10,11,12,13});
+  endproperty
+    assert property (prop5)
+    else $error("Invalid cmd used in mode=0");
+
+  property prop6;
+    @(posedge clk)
+    reset |-> (res==0 && err==0 && cout==0 && oflow==0 && g==0 && e==0 && l==0);
+  endproperty
+    assert property (prop6)
+    else $error("Outputs not cleared on reset");
+
+
+endinterface
+
+//--------------------------------------------------------------------------------
+
+
+class transaction#(parameter width=4,n=4);
+  rand bit [`width-1:0] opa;
+  rand bit [`width-1:0] opb;
+  rand bit [`n-1:0]cmd;
+  rand bit mode;
+  rand bit cin;
+  rand bit ce;
+  rand bit [1:0]inp_valid;
+  bit [`width:0]res;
+  bit reset;
+  bit g,e,l,cout,err,oflow;
+  bit clk;
+  constraint d1 {mode dist {1:=5,0:=5} ;}
+  constraint d2 {ce dist{1:=95,0:=5 };}
+  constraint d3 {inp_valid dist {[1:3]:=90 ,0:=10 };}
+
+  function void display();
+    $display("time =%0t opa=%0d,opb=%0d,cmd=%d,cin=%0b,IN_VALID=%b,ce=%0b,mode=%0b,RST=%0b|res=%0d,cout=%0b,oflow=%0b,g=%0b,e=%0b,l=%0b,err=%0b",$time, opa, opb, cmd, cin, inp_valid, ce, mode, reset, res,  cout, oflow, g, e, l, err);
+  endfunction
+
+  virtual function transaction copy();
+    copy=new();
+    copy.opa=opa;
+    copy.opb=opb;
+    copy.cmd=cmd;
+    copy.reset=reset;
+    copy.mode=mode;
+    copy.cin=cin;
+    copy.inp_valid=inp_valid;
+    copy.res=res;
+    copy.g=g;
+    copy.e=e;
+    copy.l=l;
+    copy.cout=cout;
+    copy.err=err;
+    copy.oflow=oflow;
+    return copy;
+  endfunction
+
+endclass
+
+      class trans_1 extends transaction;
+        constraint a6 {cmd == 9; mode == 1;inp_valid == 2'b11;}
+       constraint a7 {opa inside {[1:5]}; opb inside {[1:6]};}
+         virtual function transaction copy();
+           trans_1 copy1;
+    copy1 = new;
+    copy1.opa = opa;
+    copy1.opb = opb;
+    copy1.cmd = cmd;
+    copy1.inp_valid = inp_valid;
+    copy1.ce = ce;
+           copy1.reset=reset;
+    copy1.mode = mode;
+    copy1.cin = cin;
+    copy1.res = res;
+    copy1.cout = cout;
+    copy1.oflow = oflow;
+    copy1.g = g;
+    copy1.e = e;
+    copy1.l = l;
+    return copy1;
+  endfunction
+endclass
+
+         class trans_2 extends transaction;
+           constraint a6 {cmd == 12; mode == 0;inp_valid == 2'b11;}
+         virtual function transaction copy();
+           trans_2 copy2;
+    copy2 = new;
+    copy2.opa = opa;
+    copy2.opb = opb;
+    copy2.cmd = cmd;
+    copy2.inp_valid = inp_valid;
+    copy2.ce = ce;
+    copy2.mode = mode;
+           copy2.reset=reset;
+    copy2.cin = cin;
+    copy2.res = res;
+    copy2.cout = cout;
+    copy2.oflow = oflow;
+    copy2.g = g;
+    copy2.e = e;
+    copy2.l = l;
+    return copy2;
+  endfunction
+         endclass
+    class trans_3 extends transaction;
+
+
+
+      constraint d1 { mode == 1; cmd==8 ;inp_valid==2'b11 ;}
+
+      virtual function transaction copy();
+        trans_3 copy3;
+    copy3=new();
+    copy3.opa=opa;
+    copy3.opb=opb;
+    copy3.cmd=cmd;
+    copy3.mode=mode;
+    copy3.cin=cin;
+    copy3.inp_valid=inp_valid;
+    copy3.res=res;
+    copy3.reset=reset;
+    copy3.g=g;
+    copy3.e=e;
+    copy3.l=l;
+    copy3.cout=cout;
+    copy3.err=err;
+    copy3.oflow=oflow;
+    return copy3;
+  endfunction
+    endclass
+
+    class trans_4 extends transaction ;
+
+
+
+      constraint d1 {mode==0;cmd==13; inp_valid==2'b11 ;}
+
+      virtual function transaction copy();
+         trans_4 copy4;
+    copy4=new();
+    copy4.opa=opa;
+    copy4.opb=opb;
+    copy4.cmd=cmd;
+    copy4.mode=mode;
+    copy4.cin=cin;
+    copy4.inp_valid=inp_valid;
+    copy4.reset=reset;
+    copy4.res=res;
+    copy4.g=g;
+    copy4.e=e;
+    copy4.l=l;
+    copy4.cout=cout;
+    copy4.err=err;
+    copy4.oflow=oflow;
+    return copy4;
+  endfunction
+ endclass
+
+
+
+
+
+//-----------------------------------------------------------------------------------------------
+
+      class generator;
+  transaction trans_m;
+  mailbox #(transaction) mbx_d;
+  event done;
+
+  function new(mailbox #(transaction) mbx_d);
+    this.mbx_d=mbx_d;
+    trans_m=new();
+  endfunction
+
+  task run();
+    for(int i=0;i<`transactions ;i++) begin
+      if(trans_m.randomize())begin
+        mbx_d.put(trans_m.copy());
+        $display("[GEN] data sent from generator");
+        trans_m.display();
+      end
+      else $display("fail");
+      #10;
+    end
+    $display("[gen] completed");
+    ->done;
+  endtask
+
+endclass
+
+//-----------------------------------------------------------------------------------------------
+
+
+class driver;
+  transaction data;
+  mailbox #(transaction) mbx_d;//from gen
+  mailbox #(transaction) mbx_r;//to ref
+  virtual intf.DRV aif;
+
+    covergroup driver_cover;
+  Input_Valid : coverpoint data.inp_valid {
+    bins vld[4] = {2'b00, 2'b01, 2'b10, 2'b11};
+  }
+  Command : coverpoint data.cmd {
+    bins cmd_first  = {[0 : (2**(`n/2))-1]};
+    bins cmd_second = {[(2**(`n/2)) : (2**`n)-1]};
+  }
+  OperandA : coverpoint data.opa {
+    bins zero      = {0};
+    bins small_opa = {[1 : (2**(`width/2))-1]};
+    bins large_opa = {[2**(`width/2) : (2**`width)-1]};
+  }
+  OperandB : coverpoint data.opb {
+    bins zero      = {0};
+    bins small_opb = {[1 : (2**(`width/2))-1]};
+    bins large_opb = {[2**(`width/2) : (2**`width)-1]};
+  }
+  clock : coverpoint data.ce {
+    bins Clock_en[] = {1'b0, 1'b1};
+  }
+  carry_in : coverpoint data.cin {
+    bins Carry_in[] = {1'b0, 1'b1};
+  }
+  AxB     : cross OperandA, OperandB;
+  cmdxinp : cross Command, Input_Valid;
+endgroup
+
+function new(mailbox #(transaction) mbx_d,
+               mailbox #(transaction) mbx_r,
+               virtual intf.DRV aif);
+    this.mbx_d = mbx_d;
+    this.mbx_r = mbx_r;
+    this.aif = aif;
+    driver_cover = new();
+  endfunction
+
+
+  task run();
+
+    repeat (3) @(aif.drv_cb);
+    $display("driver started - %t",$time);
+    for (int i = 0; i < `transactions; i++) begin
+      mbx_d.get(data);
+      driver_cover.sample();
+
+      if ((data.ce == 1) && (data.reset == 0)) begin
+
+        if ( (data.mode == 1 && data.inp_valid == 2'b11 ) || (data.mode == 0 && data.inp_valid == 2'b11)) begin
+
+
+          aif.drv_cb.opa      <=data.opa;
+          aif.drv_cb.opb      <=data.opb;
+          aif.drv_cb.inp_valid<=data.inp_valid;
+          aif.drv_cb.cmd      <=data.cmd;
+          aif.drv_cb.mode     <=data.mode;
+          aif.drv_cb.cin      <=data.cin;
+          aif.drv_cb.ce       <=data.ce;
+
+
+            if ((data.mode == 1) && (data.cmd inside {9, 10}))
+              repeat (3) @(aif.drv_cb);
+            else
+               repeat (2) @(aif.drv_cb);
+
+              mbx_r.put(data.copy());
+
+           $display("time = %0d,cmd=%d|mode=%d|opa=%d|opb=%d|cin=%b|inpvalid=%d",$time,data.cmd,data.mode,data.opa,data.opb,data.cin,data.inp_valid);
+
+        end
+
+
+         else if ( (data.mode == 1 && data.cmd inside {4,5,6,7}) ||
+             (data.mode == 0 && data.cmd inside {6,7,8,9,10,11}) ) begin
+
+
+          aif.drv_cb.opa      <=data.opa;
+          aif.drv_cb.opb      <=data.opb;
+          aif.drv_cb.inp_valid<=data.inp_valid;
+          aif.drv_cb.cmd      <=data.cmd;
+          aif.drv_cb.mode     <=data.mode;
+          aif.drv_cb.cin      <=data.cin;
+          aif.drv_cb.ce       <=data.ce;
+
+          repeat(2)@(aif.drv_cb);
+
+          mbx_r.put(data.copy());
+           $display("cmd=%d|mode=%d|opa=%d|opb=%d|cin=%b|inpvalid=%b",data.cmd,data.mode,data.opa,data.opb,data.cin,data.inp_valid);
+
+        end
+          else if ( (data.mode == 1 && data.inp_valid == 2'b10) ||
+          (data.mode == 0 && data.inp_valid == 2'b01) ) begin
+
+                bit found = 0;
+                data.cmd.rand_mode(0);
+                        data.mode.rand_mode(0);
+                        data.ce.rand_mode(0);
+          //    data.reset.rand_mode(0);
+
+               aif.drv_cb.opa      <=data.opa;
+               aif.drv_cb.opb      <=data.opb;
+               aif.drv_cb.inp_valid<=data.inp_valid;
+               aif.drv_cb.cmd      <=data.cmd;
+               aif.drv_cb.mode     <=data.mode;
+               aif.drv_cb.cin      <=data.cin;
+               aif.drv_cb.ce       <=data.ce;
+
+            for (int j = 0; j < 16; j++) begin
+              @(aif.drv_cb);
+              data.randomize();
+              if (data.inp_valid == 2'b11) begin
+                $display("inside loop");
+               aif.drv_cb.opa      <=data.opa;
+               aif.drv_cb.opb      <=data.opb;
+               aif.drv_cb.inp_valid<=data.inp_valid;
+               aif.drv_cb.cmd      <=data.cmd;
+               aif.drv_cb.mode     <=data.mode;
+               aif.drv_cb.cin      <=data.cin;
+               aif.drv_cb.ce       <=data.ce ;
+                mbx_r.put(data.copy());
+                found = 1;
+                break;
+              end
+
+                else begin
+                aif.drv_cb.opa      <=data.opa;
+                aif.drv_cb.opb      <=data.opb;
+                aif.drv_cb.inp_valid<=data.inp_valid;
+                aif.drv_cb.cmd      <=data.cmd;
+                aif.drv_cb.mode     <=data.mode;
+                aif.drv_cb.cin      <=data.cin;
+                aif.drv_cb.ce       <=data.ce;
+
+              mbx_r.put(data.copy());
+              end
+            end
+
+            data.cmd.rand_mode(1);
+            data.mode.rand_mode(1);
+            data.ce.rand_mode(1);
+          //data.reset.rand_mode(0);
+
+
+            if (!found) begin
+              $error("IN_VALID did not become 2'b11 in 16 clocks for invalid cmd %0d mode %0d",
+                      data.cmd, data.mode);
+            end
+
+
+            if ((data.mode == 1 && data.cmd == 9) || (data.mode == 1 && data.cmd == 10))
+              repeat(3) @(aif.drv_cb);
+            else
+              repeat(2)@(aif.drv_cb);
+
+            mbx_r.put(data.copy());
+             $display("time=%0t,cmd=%d|mode=%d|opa=%d|opb=%d|cin=%b|inpvalid=%b",$time,data.cmd,data.mode,data.opa,data.opb,data.cin,data.inp_valid);
+
+          end
+        end
+      end
+
+  endtask
+endclass
+//-------------------------------------------------------------------------------------------------------------------------------
+
+class monitor;
+  transaction trans_m;
+  mailbox #(transaction) mbx_m;
+  virtual intf.MON aif;
+  function new(mailbox #(transaction) mbx_m, virtual intf.MON aif);
+
+
+
+    this.mbx_m=mbx_m;
+    this.aif=aif;
+  endfunction
+
+  task run();
+    repeat(3) @(aif.mon_cb);
+
+    for (int i=0 ;i< `transactions ; i++) begin
+      trans_m=new();
+
+      @(aif.mon_cb);
+      trans_m.res   = aif.mon_cb.res;
+      trans_m.err   = aif.mon_cb.err;
+      trans_m.cout  = aif.mon_cb.cout;
+      trans_m.oflow = aif.mon_cb.oflow;
+      trans_m.g     = aif.mon_cb.g;
+      trans_m.e     = aif.mon_cb.e;
+      trans_m.l     = aif.mon_cb.l;
+
+      $display("[MON] time = %0d,res=%d|err=%b|cout=%b|oflow=%b|g=%b|e=%b|l=%b",$time,trans_m.res,trans_m.err,trans_m.cout,trans_m.oflow,trans_m.g,trans_m.e,trans_m.l);
+
+      //to score board
+      mbx_m.put(trans_m.copy());
+    end
+
+  endtask
+
+endclass
+  //------------------------------------------------------------------------------------------------------------
+
+
+class reference;
+  transaction trans_r;
+  mailbox #(transaction) mbx_r;
+  mailbox #(transaction) mbx_s;
+
+  virtual intf.REF aif;
+
+  function new(mailbox #(transaction) mbx_r,mailbox #(transaction) mbx_s,virtual intf.REF aif);
+    this.mbx_r=mbx_r;
+    this.mbx_s=mbx_s;
+    this.aif=aif;
+  endfunction
+
+  task run();
+    bit found;
+    bit [3:0]count;
+
+    for(int i=0;i<`transactions ;i++) begin
+      mbx_r.get(trans_r);
+      found= 1'b0;
+      count=4'b0;
+
+      if(trans_r.reset==1 || trans_r.ce==0) begin
+        trans_r.res   =0;
+        trans_r.g     =0;
+        trans_r.e     =0;
+        trans_r.l     =0;
+        trans_r.oflow =0;
+        trans_r.cout  =0;
+        trans_r.err   =0;
+      end
+
+      else if((trans_r.reset==0) && (trans_r.ce==1)) begin
+
+        if ( (trans_r.mode == 1 &&!(trans_r.cmd inside {0,1,2,3,4,5,6,7,8,9,10})) ||
+             (trans_r.mode == 0 &&!(trans_r.cmd inside {0,1,2,3,4,5,6,7,8,9,10,11,12})) ) begin
+
+          trans_r.err = 1;
+
+        end
+
+        if ((trans_r.mode == 0 && trans_r.cmd inside {0,1,2,3,8,9,10}) ||
+            (trans_r.mode == 1 && trans_r.cmd inside {0,1,2,3,4,5,12,13})) begin
+
+          if(trans_r.inp_valid[1] || trans_r.inp_valid[0]) // Corrected: Use [0] for opa's valid bit
+            begin
+              repeat(16) begin
+                mbx_r.get(trans_r);
+                if( trans_r.inp_valid==2'b11) begin
+                  found=1;
+                  break;
+                end
+              end
+              if(!(found)) begin
+                trans_r.err=1;
+              end
+            end
+
+          if(trans_r.mode==1) begin
+
+            case(trans_r.cmd)
+              0: if(trans_r.inp_valid==2'b11|| found) begin
+                trans_r.res =trans_r.opa+trans_r.opb;
+                trans_r.cout= trans_r.res[`width];
+              end
+              1: if(trans_r.inp_valid==2'b11|| found) begin
+                trans_r.res  =trans_r.opa-trans_r.opb;
+                trans_r.oflow = trans_r.opa<trans_r.opb;
+              end
+
+              2: if(trans_r.inp_valid==2'b11|| found) begin
+                trans_r.res =trans_r.opa+trans_r.opb +trans_r.cin;
+                trans_r.cout= trans_r.res[`width];
+              end
+              3: if(trans_r.inp_valid==2'b11|| found) begin
+                trans_r.res =trans_r.opa+trans_r.opb-trans_r.cin;
+                trans_r.oflow= trans_r.opa< (trans_r.opb+trans_r.cin);
+              end
+              4:if(trans_r.inp_valid[0]==1 || trans_r.inp_valid==2'b11) begin // Corrected: Check bit 0
+                trans_r.res=trans_r.opa+1;
+              end
+              else
+                trans_r.err=1'b1;
+              5:if(trans_r.inp_valid[0]==1 || trans_r.inp_valid==2'b11) begin // Corrected: Check bit 0
+                trans_r.res=trans_r.opa-1;
+              end
+              else
+                trans_r.err=1'b1;
+              6:if(trans_r.inp_valid[1]==1 || trans_r.inp_valid==2'b11) begin // Corrected: Check bit 1
+                trans_r.res=trans_r.opb+1;
+              end
+              else
+                trans_r.err=1'b1;
+              7:if(trans_r.inp_valid[1]==1 || trans_r.inp_valid==2'b11) begin // Corrected: Check bit 1
+                trans_r.res=trans_r.opb-1;
+              end
+              else
+                trans_r.err=1'b1;
+
+              8:if(trans_r.inp_valid==2'b11|| found) begin
+                if(trans_r.opa==trans_r.opb) begin
+                trans_r.g=1'b0;
+                trans_r.e=1'b1;
+                trans_r.l=1'b0;
+              end
+              else if(trans_r.opa<trans_r.opb) begin
+                trans_r.g=1'b0;
+                trans_r.e=1'b0;
+                trans_r.l=1'b1;
+              end
+              else if(trans_r.opa>trans_r.opb) begin
+                trans_r.g=1'b1;
+                trans_r.e=1'b0;
+                trans_r.l=1'b0;
+              end
+              end
+              else
+                trans_r.err=1'b1;
+              9:if(trans_r.inp_valid==2'b11|| found) begin
+                trans_r.res=(trans_r.opa+1)*(trans_r.opb+1);
+              end
+
+              10:if(trans_r.inp_valid==2'b11|| found) begin
+                trans_r.res=(trans_r.opa<<1)*trans_r.opb;
+                end
+              default:trans_r.res=0;
+            endcase
+          end
+          else if(trans_r.mode==0) begin
+            case(trans_r.cmd)
+              0:if(trans_r.inp_valid==2'b11 || found) begin
+                trans_r.res=trans_r.opa & trans_r.opb;
+              end
+              1:if(trans_r.inp_valid==2'b11 || found) begin
+                trans_r.res=~(trans_r.opa & trans_r.opb);
+              end
+              2:if(trans_r.inp_valid==2'b11 || found) begin
+                trans_r.res=trans_r.opa | trans_r.opb;
+              end
+              3:if(trans_r.inp_valid==2'b11 || found) begin
+                trans_r.res=~(trans_r.opa | trans_r.opb);
+              end
+              4:if(trans_r.inp_valid==2'b11 || found) begin
+                trans_r.res=trans_r.opa ^ trans_r.opb;
+              end
+              5:if(trans_r.inp_valid==2'b11 || found) begin
+                trans_r.res=~(trans_r.opa ^ trans_r.opb);
+              end
+              6:if(trans_r.inp_valid[0]==1 ||trans_r.inp_valid==2'b11) // Corrected: Check bit 0
+                trans_r.res=~trans_r.opa;
+
+              7:if(trans_r.inp_valid[1]==1 ||trans_r.inp_valid==2'b11) // Corrected: Check bit 1
+                trans_r.res=~trans_r.opb;
+              8:if(trans_r.inp_valid[0]==1 ||trans_r.inp_valid==2'b11) // Corrected: Check bit 0
+                trans_r.res=trans_r.opa>>1;
+              9:if(trans_r.inp_valid[0]==1 ||trans_r.inp_valid==2'b11) // Corrected: Check bit 0
+                trans_r.res=trans_r.opa<<1;
+
+              10:if(trans_r.inp_valid[1]==1 ||trans_r.inp_valid==2'b11) // Corrected: Check bit 1
+                trans_r.res=trans_r.opb>>1;
+              11:if(trans_r.inp_valid[1]==1 ||trans_r.inp_valid==2'b11) // Corrected: Check bit 1
+                trans_r.res=trans_r.opb<<1;
+              //lrotate left a by b
+              12:if(trans_r.inp_valid==2'b11|| found) begin
+                if(trans_r.opb[(`width-1):$clog2(`width)+1]==1'b1)
+                    trans_r.err=1'b1;
+                  else
+                    trans_r.res=(trans_r.opa<< trans_r.opb[$clog2(`width)-1:0]);
+              end
+              //rotate right a by b
+              13:if(trans_r.inp_valid==2'b11 || found) begin
+                if(trans_r.opb[(`width-1):$clog2(`width)+1]==1'b1)
+                    trans_r.err=1'b1;
+                  else
+                    trans_r.res=(trans_r.opa>> trans_r.opb[$clog2(`width)-1:0]);
+              end
+
+              default : trans_r.err=1'b1;
+            endcase
+          end
+
+        end
+      end
+      mbx_s.put(trans_r.copy());
+      $display("[ref] time=%0d,cmd=%0d | mode=%0b | opa=%0d | opb=%0d | inp_valid=%b | res=%0d | err=%b",$time,trans_r.cmd, trans_r.mode, trans_r.opa, trans_r.opb, trans_r.inp_valid, trans_r.res, trans_r.err);
+
+    end
+
+  endtask
+
+endclass
+//---------------------------------------------------------------------------------------------------------------------\
+      class scoreboard;
+
+        mailbox #(transaction) mbx_s; //from referance
+        mailbox #(transaction) mbx_m;//from monitor
+
+
+  transaction trans_m;
+  transaction trans_r;
+  event done;
+
+        function new(mailbox #(transaction) mbx_s,mailbox #(transaction) mbx_m );
+    this.mbx_s=mbx_s;
+    this.mbx_m=mbx_m;
+  endfunction
+
+
+  task run();
+    for (int i=0;i<`transactions ; i++) begin
+      if(done.triggered);
+      trans_m=new();
+      trans_r=new();
+
+      fork
+       /* begin
+          mbx_s.get(trans_r);
+          $display(" data res=%d|cout=%b|oflow=%d|err=%d|g=%b|e=%b|l=%b",trans_r.res,trans_r.cout,trans_r.oflow,trans_r.err,trans_r.g,trans_r.e,trans_r.l);
+        end*/
+        begin
+          mbx_m.get(trans_m);
+          $display("[MON]time=%0d, data res=%d|cout=%b|oflow=%d|err=%d|g=%b|e=%b|l=%b",$time,trans_m.res,trans_m.cout,trans_m.oflow,trans_m.err,trans_m.g,trans_m.e,trans_m.l);
+        end
+      join
+
+      $display("-----------------------------");
+
+      if(trans_r.res===trans_m.res)
+        $display("pass");
+      else
+        $display("fail");
+      if(trans_r.err===trans_m.err)
+          $display("pass");
+      else
+        $display("fail");
+      if(trans_r.g===trans_m.g)
+          $display("pass");
+      else
+        $display("fail");
+      if(trans_r.e===trans_m.e)
+          $display("pass");
+      else
+        $display("fail");
+      if(trans_r.l===trans_m.l)
+          $display("pass");
+      else
+        $display("fail");
+      if(trans_r.cout===trans_m.cout)
+          $display("pass");
+      else
+        $display("fail");
+      if(trans_r.oflow===trans_m.oflow)
+          $display("pass");
+      else
+        $display("fail");
+
+
+      $display("-----------------------------");
+    end
+  endtask
+
+endclass
+//---------------------------------------------------------------------------------------------------------
+
+
+class environment;
+  virtual intf dif;
+  virtual intf mif;
+  virtual intf rif;
+
+  mailbox #(transaction) mbx_d;//from gen to drv
+  mailbox #(transaction) mbx_r;//from drv to ref
+  mailbox #(transaction) mbx_s;//from ref to score
+  mailbox #(transaction) mbx_m;//from mon to score
+
+
+  //declaring hgandles
+  generator gen;
+  driver drv;
+  monitor mon;
+  reference ref1;
+  scoreboard scb;
+
+  function new( virtual intf dif,virtual intf mif,virtual intf rif);
+    this.dif=dif;
+    this.rif=rif;
+    this.mif=mif;
+
+    // Allocate mailboxes
+    mbx_d = new();
+    mbx_r = new();
+    mbx_s = new();
+    mbx_m = new();
+  endfunction
+
+  task build();
+    gen = new(mbx_d);
+    drv = new(mbx_d,mbx_r,dif);
+    ref1= new(mbx_r,mbx_s,rif);
+    mon = new(mbx_m,mif);
+    scb = new(mbx_s,mbx_m);
+  endtask
+
+  task run();
+    fork
+    gen.run();
+    drv.run();
+    mon.run();
+    ref1.run();
+    scb.run();
+    join
+    //#10000;
+    $display("[env] completed");
+  endtask
+
+
+endclass
+//-----------------------------------------------------------------------------------------------------------
+
+
+class test;
+  virtual intf dif;
+  virtual intf rif;
+  virtual intf mif;
+
+
+  function new(virtual intf dif,virtual intf mif,virtual intf rif);
+   this.dif=dif;
+    this.rif=rif;
+    this.mif=mif;
+
+  endfunction
+
+  environment env;
+  task run();
+    env=new(dif,mif,rif);
+    env.build();
+    env.run();
+  endtask
+endclass
+
+    class test1 extends test;
+    trans_1 trans;
+
+      function new(virtual intf dif,virtual intf mif,virtual intf rif);
+
+      super.new(dif,mif,rif);
+
+  endfunction
+
+    task run();
+      $display("test 3");
+      env=new(dif,mif,rif);
+      env.build();
+
+      begin
+        trans=new();
+        env.gen.trans_m=trans;
+      end
+
+    endtask
+  endclass
+      class test2 extends test;
+    trans_2 trans;
+
+    function new(virtual intf dif,virtual intf rif,virtual intf mif);
+      super.new(dif,mif,rif);
+
+  endfunction
+
+    task run();
+      $display("test 3");
+      env=new(dif,mif,rif);
+      env.build();
+
+      begin
+        trans=new();
+        env.gen.trans_m=trans;
+      end
+
+    endtask
+  endclass
+
+  /*class test3 extends test;
+
+    trans_3 trans;
+
+    function new(virtual intf dif,virtual intf mif,virtual intf rif);
+        super.new(dif,mif,rif);
+    endfunction
+
+    task run();
+      $display("test 3");
+      env=new(dif,mif,rif);
+      env.build();
+
+      begin
+        trans=new();
+        env.gen.trans_m=trans;
+      end
+
+    endtask
+
+
+  endclass*/
+
+  class test4 extends test;
+    trans_4 trans;
+
+    function new(virtual intf dif,virtual intf mif,virtual intf rif);
+    super.new(dif,mif,rif);
+
+  endfunction
+
+    task run();
+      $display("test 3");
+      env=new(dif,mif,rif);
+      env.build();
+
+      begin
+        trans=new();
+        env.gen.trans_m=trans;
+      end
+
+    endtask
+  endclass
+
+      class regression_test extends test;
+
+        trans_1 trans1;
+        trans_2 trans2;
+        trans_3 trans3;
+        trans_4 trans4;
+
+        function new(virtual intf dif,virtual intf mif,virtual intf rif);
+          super.new(dif,mif,rif);
+
+        endfunction
+
+        task run();
+          env=new(dif,mif,rif);
+          env.build();
+
+          trans1=new();
+          env.gen.trans_m=trans1;
+          env.run();
+
+          trans2=new();
+          env.gen.trans_m=trans2;
+          env.run();
+
+           trans3=new();
+          env.gen.trans_m=trans3;
+          env.run();
+
+           trans4=new();
+          env.gen.trans_m=trans4;
+          env.run();
+
+        endtask
+
+      endclass
+  //--------------------------------------------------------------------------------------------------------------------
+
+module top();
+
+   intf aif();
+
+  initial begin
+    aif.clk=0;
+
+  forever #5 aif.clk = ~aif.clk;
+  end
+
+    initial
+      begin
+        aif.reset = 1;
+        @(posedge aif.clk)
+        aif.reset = 0;
+      end
+
+
+  ALU_DESIGN dut(.OPA(aif.opa),.OPB(aif.opb),.CLK(aif.clk),.RST(aif.reset),.CE(aif.ce),.MODE(aif.mode),.CIN(aif.cin),.CMD(aif.cmd),.INP_VALID(aif.inp_valid),.RES(aif.res),.COUT(aif.cout) ,.OFLOW(aif.oflow),.G(aif.g),.L(aif.l),.E(aif.e),.ERR(aif.err));
+
+  regression_test test_1 = new(aif.DRV, aif.MON, aif.REF);
+
+  initial begin
+    test_1.run();
+
+      $finish;
+  end
+
+endmodule
