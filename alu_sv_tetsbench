@@ -38,8 +38,8 @@ interface intf();
   modport MON(clocking mon_cb);
   modport REF(clocking ref_cb);
   modport DUT(
-    input opa, input opb, input cmd, input inp_valid, input mode, input ce, inpu                                                                                                             t cin,
-    output res, output err, output oflow, output cout, output g, output e, outpu                                                                                                             t l
+    input opa, input opb, input cmd, input inp_valid, input mode, input ce, input cin,
+    output res, output err, output oflow, output cout, output g, output e, output l
   );
 endinterface
 
@@ -96,8 +96,8 @@ class generator;
       trans_m.reset = 0; // Explicitly force reset off
       if (trans_m.randomize()) begin
         mbx_d.put(trans_m.copy());
-        $display("[%0t][GEN] Sent transaction: opa=%d, opb=%d, cmd=%d, inp_valid                                                                                                             =%b, ce=%d, mode=%d, reset=%b",
-                 $time, trans_m.opa, trans_m.opb, trans_m.cmd, trans_m.inp_valid                                                                                                             , trans_m.ce, trans_m.mode, trans_m.reset);
+        $display("[%0t][GEN] Sent transaction: opa=%d, opb=%d, cmd=%d, inp_valid=%b, ce=%d, mode=%d, reset=%b",
+                 $time, trans_m.opa, trans_m.opb, trans_m.cmd, trans_m.inp_valid, trans_m.ce, trans_m.mode, trans_m.reset);
       end else
         $display("[%0t][GEN] Randomize failed", $time);
       #10;
@@ -114,7 +114,7 @@ class driver;
   mailbox #(transaction#(`width, `n)) mbx_d, mbx_r;
   virtual intf.DRV aif;
 
-  function new(mailbox #(transaction#(`width, `n)) mbx_d, mailbox #(transaction#                                                                                                             (`width, `n)) mbx_r, virtual intf.DRV aif);
+  function new(mailbox #(transaction#(`width, `n)) mbx_d, mailbox #(transaction#(`width, `n)) mbx_r, virtual intf.DRV aif);
     this.mbx_d = mbx_d;
     this.mbx_r = mbx_r;
     this.aif = aif;
@@ -137,8 +137,8 @@ class driver;
       repeat (2) @(aif.drv_cb);
 
       mbx_r.put(data.copy());
-      $display("[%0t][DRV] Sent to REF: opa=%d, opb=%d, cmd=%d, inp_valid=%b, ce                                                                                                             =%d, mode=%d",
-               $time, data.opa, data.opb, data.cmd, data.inp_valid, data.ce, dat                                                                                                             a.mode);
+      $display("[%0t][DRV] Sent to REF: opa=%d, opb=%d, cmd=%d, inp_valid=%b, ce=%d, mode=%d",
+               $time, data.opa, data.opb, data.cmd, data.inp_valid, data.ce, data.mode);
     end
   endtask
 endclass
@@ -177,8 +177,8 @@ class monitor;
       trans_m.e         = aif.mon_cb.e;
       trans_m.l         = aif.mon_cb.l;
 
-      $display("[%0t][MON] Sampled DUT outputs: res=%d, err=%b, cout=%b, oflow=%                                                                                                             b, g=%b, e=%b, l=%b",
-               $time, trans_m.res, trans_m.err, trans_m.cout, trans_m.oflow, tra                                                                                                             ns_m.g, trans_m.e, trans_m.l);
+      $display("[%0t][MON] Sampled DUT outputs: res=%d, err=%b, cout=%b, oflow=%b, g=%b, e=%b, l=%b",
+               $time, trans_m.res, trans_m.err, trans_m.cout, trans_m.oflow, trans_m.g, trans_m.e, trans_m.l);
 
       mbx_m.put(trans_m.copy());
     end
@@ -192,7 +192,7 @@ class reference;
   mailbox #(transaction#(`width, `n)) mbx_r, mbx_s;
   virtual intf.REF aif;
 
-  function new(mailbox #(transaction#(`width, `n)) mbx_r, mailbox #(transaction#                                                                                                             (`width, `n)) mbx_s, virtual intf.REF aif);
+  function new(mailbox #(transaction#(`width, `n)) mbx_r, mailbox #(transaction#(`width, `n)) mbx_s, virtual intf.REF aif);
     this.mbx_r = mbx_r;
     this.mbx_s = mbx_s;
     this.aif = aif;
@@ -201,8 +201,7 @@ class reference;
   task run();
     for (int i = 0; i < `transactions; i++) begin
       mbx_r.get(trans_r);
-      $display("[%0t][REF] Received transaction: reset=%b, ce=%b, opa=%d, opb=%d                                                                                                             , cmd=%d, inp_valid=%b",
-               $time, trans_r.reset, trans_r.ce, trans_r.opa, trans_r.opb, trans                                                                                                             _r.cmd, trans_r.inp_valid);
+      $display("[%0t][REF] Received transaction: reset=%b, ce=%b, opa=%d, opb=%d, cmd=%d, inp_valid=%b",$time, trans_r.reset, trans_r.ce, trans_r.opa, trans_r.opb, trans_r.cmd, trans_r.inp_valid);
 
       if (trans_r.reset == 1 || trans_r.ce == 0) begin
         trans_r.res = 0;
@@ -210,7 +209,7 @@ class reference;
         trans_r.oflow = 0; trans_r.cout = 0; trans_r.err = 0;
       end else begin
         // Sample command handling, example for mode==1 cmd==0
-        if (trans_r.mode == 1 && trans_r.cmd == 0 && trans_r.inp_valid == 2'b11)                                                                                                              begin
+        if (trans_r.mode == 1 && trans_r.cmd == 0 && trans_r.inp_valid == 2'b11)begin
           trans_r.res = trans_r.opa + trans_r.opb;
           trans_r.cout = trans_r.res[`width];
           trans_r.err = 0;
@@ -222,7 +221,7 @@ class reference;
       end
 
       mbx_s.put(trans_r.copy());
-      $display("[%0t][REF] Computed expected: res=%d, err=%b, cout=%b", $time, t                                                                                                             rans_r.res, trans_r.err, trans_r.cout);
+      $display("[%0t][REF] Computed expected: res=%d, err=%b, cout=%b", $time, trans_r.res, trans_r.err, trans_r.cout);
     end
   endtask
 endclass
@@ -233,7 +232,7 @@ class scoreboard;
   mailbox #(transaction#(`width, `n)) mbx_s, mbx_m;
   transaction#(`width, `n) trans_r, trans_m;
 
-  function new(mailbox #(transaction#(`width, `n)) mbx_s, mailbox #(transaction#                                                                                                             (`width, `n)) mbx_m);
+  function new(mailbox #(transaction#(`width, `n)) mbx_s, mailbox #(transaction#(`width, `n)) mbx_m);
     this.mbx_s = mbx_s;
     this.mbx_m = mbx_m;
   endfunction
@@ -243,10 +242,7 @@ class scoreboard;
       mbx_s.get(trans_r);
       mbx_m.get(trans_m);
 
-      $display("[%0t][SCB] REF res=%d err=%d cout=%b g=%b e=%b l=%b | MON res=%d                                                                                                              err=%d cout=%b g=%b e=%b l=%b",
-               $time,
-               trans_r.res, trans_r.err, trans_r.cout, trans_r.g, trans_r.e, tra                                                                                                             ns_r.l,
-               trans_m.res, trans_m.err, trans_m.cout, trans_m.g, trans_m.e, tra                                                                                                             ns_m.l);
+      $display("[%0t][SCB] REF res=%d err=%d cout=%b g=%b e=%b l=%b | MON res=%derr=%d cout=%b g=%b e=%b l=%b",$time,trans_r.res, trans_r.err, trans_r.cout, trans_r.g, trans_r.e, trans_r.l,trans_m.res, trans_m.err, trans_m.cout, trans_m.g, trans_m.e, trans_m.l);
 
       if (trans_r.res === trans_m.res)
         $display("[%0t][SCB] RESULT PASS", $time);
